@@ -1,0 +1,74 @@
+### Java集合
+容器主要包括 Collection 和 Map 两种;
+- Collection 存储着对象的集合，
+- 而 Map 存储着键值对(两个对象)的映射表
+
+#### Collection
+##### Q1: 集合有哪些类？
+1. Set(值不重复)
+   - TreeSet: 基于红黑树实现，支持有序性操作。
+   - HashSet: 基于哈希表实现，支持快速查找，但不支持有序性操作。
+   - LinkedHashSet: 具有HashSet的查找效率，且内部使用双向链表维护元素的插入顺序。
+2. List(顺序集合)
+   - ArrayList: 基于动态数组实现，支持随机访问。
+   - Vector: 和ArrayList类似，但它是线程安全的。
+   - LinkedList: 基于双向链表实现，只能顺序访问，但是可以快速地在链表中间插入和删除元素;可用作栈，队列和双向队列。
+3. Queue(队列)
+   - LinkedList: 可以用它来实现双向队列。
+   - PriorityQueue: 基于堆结构实现，可以用它来实现优先队列。
+
+##### Q2: ArrayList的底层？
+1. ArrayList实现了List接口，是顺序容器，即元素存放的数据与放进去的顺序相同，允许放入null元素，底层通过数组实现。
+2. ArrayList未实现同步，每个ArrayList都有一个容量(capacity)，表示底层数组的实际大小。
+3. 容器内存储元素的个数不能多于当前容量。当向容器中添加元素的时候，容量不足，容器会自动增大底层数组的大小。
+
+##### Q3: ArrayList自动扩容？
+1. 添加元素时，会检查添加的元素个数是否会超出当前数组的长度。如果超出，就会进行扩容，以满足添加数据的需求。
+2. 数组扩容通过ensureCapacity(int minCapacity)方法来实现，在实际添加大量元素前，也可以使用该方法来手动增加ArrayList实例的容量，以减少递增式再分配的数量。
+3. 数组进行扩容时，会将老数组中的元素重新拷贝一份到新的数组中，每次数组容量的增长大约是其原容量的1.5倍。
+4. 代价很高，应尽量避免数组容量的扩张。所以在可预知元素数量的时候，在构建实例时，就指定其容量，以避免数组扩容发生，或者手动扩容。
+
+##### Q4: ArrayList的Fail-Fast机制？
+ArrayList也采用了快速失败的机制，通过记录modCount参数来实现。在面对并发的修改时,迭代器很快就会完全失败，而不是冒着在将来某个不确定时间发生任意不确定行为的风险。
+
+##### Q5: LinkedList的实现和底层原理分析？
+LinkedList同时实现了list接口和Deque接口，是一个顺序容器，没有实现同步。通过双向链表实现，可以存放null元素。
+
+##### Q6: Stack & Queue
+1. stack和queue的实现都是首选ArrayDeque。
+2. Queue和Deque都有两组方法，一组是抛出异常的实现，一组是返回值的实现(没有则返回null)。
+
+##### Q7:PriorityQueue源码解析
+PriorityQueue，即优先队列； 是一个通过完全二叉树实现的小顶堆，不允许放入null元素
+优先队列的作用是能保证每次取出的元素都是队列中权值最小的(Java的优先队列每次取最小元素，C++的优先队列每次取最大元素)
+
+元素大小的评判可以通过元素本身的自然顺序(natural ordering)，也可以通过构造时传入的比较器(Comparator，类似于C++的仿函数)
+
+#### Map
+##### Q1: Map有哪些类？
+1. TreeMap 基于红黑树实现。
+2. HashMap 1.7基于哈希表实现，1.8基于数组+链表+红黑树
+3. HashTable 类似于HashMap，但它是线程安全的，并发情况下可以保证数据一致性。但是是遗留类，不应该使用。
+4. LinkedHashMap 使用双向链表来维护元素的顺序，顺序为插入顺序或者最近最少使用(LRU)顺序。
+
+##### Q2: JDK7 HashMap如何实现？
+哈希表的实现方式:
+- 开放地址方式(Open addressing)
+- 冲突链表方式(Separate chaining with linked lists)
+
+1. JDK7 HashMap是基于`数组+哈希表`实现的，采用的是冲突链表方式。
+2. 有两个参数可以影响HashMap的性能: 初始容量(initial capacity)和负载系数(load factor)。
+   - 初始容量指定了初始table的大小，负载系数用来指定自动扩容的临界值。
+   - 当entry的数量超过capacity*load_factor时，容器将自动扩容并重新哈希。
+   - 对于插入元素较多的场景，将初始容量设大可以减少重新哈希的次数。
+
+##### Q3: JDK8 HashMap的实现？
+1. JDK8中HashMap的实现方式是`数组+链表+红黑树`； 
+2. 主要是为了降低查找元素的开销(提高性能)。当元素达到8的时候，就会将链表转化为红黑树。
+3. 采用这种方式是可以把查询的时间复杂度从 O(n)降低到O(logN)。
+
+**为什么扩容阈值是8?**
+https://blog.csdn.net/bamboo_cqh/article/details/122873063
+https://dorado.host/index.php/archives/126/
+
+有待添加的问题:JDK中为什么要采用红黑树而不是二叉平衡树。采用红黑树的原因？为什么扩容系数是8？

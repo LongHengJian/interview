@@ -129,7 +129,55 @@ Throwable 是 Java 语言中所有错误与异常地超类，异常结构图如�
    - 如果代码可能会引发某种错误，可以创建一个合适的异常类实例并抛出它，这就是抛出异常。
 
 ##### Q4: Java7的try-with-resource?
+1. 使用的前提是，资源实现了AutoCloseable 接口。
+2. 使用效果: 当你在try子句中打开资源，资源会在try代码块执行后或异常处理后自动关闭。
 
+##### Q5: 异常的底层原理？
+JVM的异常异常处理机制是依赖于Exception Table(异常表); 异常表中包含了一个或多个异常处理者(Exception Handler)的信息，这些信息包含如下:
+- from 可能发生异常的起始点
+- to 可能发生异常的结束点
+- target 上述from和to之前发生异常后的异常处理者的位置
+- type 异常处理者处理的异常的类信息
 
+异常表示例代码如下:
+```text
+Exception table:
+    from    to  target type 
+     0       3     6   Class java/lang/Exception
+```
 
-   
+异常表使用时机是在异常发生的时候，当一个异常发生时，处理机制如下:
+1. JVM会在当前出现异常的方法中，查找异常表，是否有合适的处理者来处理 
+2. 如果当前方法异常表不为空，并且异常符合处理者的from和to节点，并且type也匹配，则JVM调用位于target的调用者来处理。 
+3. 如果上一条未找到合理的处理者，则继续查找异常表中的剩余条目 
+4. 如果当前方法的异常表无法处理，则向上查找（弹栈处理）刚刚调用该方法的调用处，并重复上面的操作。 
+5. 如果所有的栈帧被弹出，仍然没有处理，则抛给当前的Thread，Thread则会终止。 
+6. 如果当前Thread为最后一个非守护线程，且未处理异常，则会导致JVM终止运行。
+
+#### 反射
+##### Q1: 什么是反射？
+Java的反射机制指的是在运行状态中动态获取类的信息以及动态调用对象方法的功能。
+   - 对于任意一个类，都能够知道这个类的所有属性和方法。
+   - 对于任意一个对象，都能够调用它的任意一个方法和属性。
+![类加载图](../../../picture/java/java-basic-reflection-3.png)
+
+##### Q2: 反射的使用？
+在java中，Class类与java.lang.reflect类库实现了反射机制。反射中包含的对象有class,Constructor,Field类,Method类。
+1. 获取类的方法:
+   - 根据类名：类名.class
+   - 根据对象：对象.getClass()
+   - 根据全限定类名：Class.forName(全限定类名)
+
+##### Q3: getName、getCanonicalName与getSimpleName的区别?
+1. getSimpleName：只获取类名
+2. getName：类的全限定名，jvm中Class的表示，可以用于动态加载Class对象，例如Class.forName。
+3. getCanonicalName：返回更容易理解的表示，主要用于输出（toString）或log打印。
+
+#### SPI机制
+##### Q1: 什么是SPI机制？
+1. SPI（Service Provider Interface），是JDK内置的一种服务提供发现机制，可以用来启用框架扩展和替换组件，主要是被框架的开发人员使用。
+2. 主要思想是将装配的控制权移到程序之外，核心思想就是解耦。
+3. 实现:
+   - 服务者提供服务实现，放在META-INF/services/目录里的文件中
+   - 服务调用者查找jar包里的META-INF/services/中的配置文件
+   - 根据类名进行加载实例化，就可以使用该服务了。JDK中查找服务的实现的工具类是：java.util.ServiceLoader。
