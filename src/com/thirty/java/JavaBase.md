@@ -109,7 +109,7 @@ switch实际上只是一种语法糖，它支持的只有int类型，但是可�
 #### 异常
 ##### Q1: Java异常类层次结构
 Throwable 是 Java 语言中所有错误与异常地超类，异常结构图如下
-![异常结构图](../../../picture/java/java-basic-exception-1.png)
+![异常结构图](../../../picture/java/javaBase/java-basic-exception-1.png)
 1. Error 类及其子类：程序中无法处理的错误，表示运行应用程序中出现了严重的错误。
 2. Exception 程序本身可以捕获并且可以处理的异常。Exception 这种异常又分为两类,运行时异常和非运行时异常。
 
@@ -159,7 +159,7 @@ Exception table:
 Java的反射机制指的是在运行状态中动态获取类的信息以及动态调用对象方法的功能。
    - 对于任意一个类，都能够知道这个类的所有属性和方法。
    - 对于任意一个对象，都能够调用它的任意一个方法和属性。
-![类加载图](../../../picture/java/java-basic-reflection-3.png)
+![类加载图](../../../picture/java/javaBase/java-basic-reflection-3.png)
 
 ##### Q2: 反射的使用？
 在java中，Class类与java.lang.reflect类库实现了反射机制。反射中包含的对象有class,Constructor,Field类,Method类。
