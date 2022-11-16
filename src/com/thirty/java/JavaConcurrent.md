@@ -256,9 +256,9 @@ Java 提供了两种锁机制来控制多个线程对共享资源的互斥访问
 #### 并发关键字
 
 ##### Q1: Synchronized可以作用在哪里?
-1. 类锁
-2. 对象锁
-3. 方法锁
+1. 类锁 指synchronize修饰静态的方法或指定锁对象为Class对象
+2. 对象锁 包括方法锁(默认锁对象为this,当前实例对象)和同步代码块锁(自己指定锁对象)
+3. 方法锁 synchronized修饰普通方法，锁对象默认为this
 
 ##### Q2: Synchronized本质上是通过什么保证线程安全的?
 1. 加锁和释放锁的原理(指令)
@@ -416,12 +416,15 @@ happens-before 规则中有一条是 volatile 变量规则：对一个 volatile 
 ##### Q22. final域为引用类型
 - 对final修饰的对象的成员域写操作:针对引用数据类型，final域写针对编译器和处理器重排序增加了这样的约束
   - 在构造函数内对一个final修饰的对象的成员域的写入
-  - 与随后在构造函数之外把这个被构造的对象的引用赋给一个引用变量，这两个操作是不能被重排序的
+  - 与随后在构造函数之外把这个被构造的对象的引用赋给一个引用变量，这两个操作是不能被vol重排序的
 - 对final修饰的对象的成员域读操作
 
 ##### Q23. 说说final的原理?
 1. 写final域会要求编译器在final域写之后，构造函数返回前插入一个StoreStore屏障。
 2. 读final域的重排序规则会要求编译器在读final域的操作前插入一个LoadLoad屏障。
+
+##### Q24. volatile可以修饰什么?
+volatile关键字可以修饰在类变量或者实例变量上，不能修饰在方法参数，局部变量，实例常量以及类常量上
 
 
 #### JUC全局观
@@ -496,3 +499,184 @@ happens-before 规则中有一条是 volatile 变量规则：对一个 volatile 
      - Exchanger是用于线程协作的工具类, 主要用于两个线程之间的数据交换
      - 它提供一个同步点，在这个同步点，两个线程可以交换彼此的数据
      - 这两个线程通过exchange()方法交换数据，当一个线程先执行exchange()方法后，它会一直等待第二个线程也执行exchange()方法，当这两个线程到达同步点时，这两个线程就可以交换数据了
+
+##### Q3. JUC并发集合哪些核心的类?
+![并发集合框架图](../../../picture/java/javaConcurrent/java-thread-x-juc-overview-2.png)
+1. Queue
+    - ArrayBlockingQueue:  一个由数组支持的有界阻塞队列。
+      - 此队列按 FIFO(先进先出)原则对元素进行排序
+      - 队列的头部 是在队列中存在时间最长的元素。队列的尾部 是在队列中存在时间最短的元素
+      - 新元素插入到队列的尾部，队列获取操作则是从队列头部开始获得元素
+    - LinkedBlockingQueue: 一个基于已链接节点的、范围任意的 blocking queue,
+      - 此队列按 FIFO(先进先出)排序元素
+      - 大部分特性同上
+      - 链接队列的吞吐量通常要高于基于数组的队列，但是在大多数并发应用程序中，其可预知的性能要低。
+    - LinkedBlockingDeque: 一个基于已链接节点的、任选范围的阻塞双端队列。
+    - ConcurrentLinkedQueue: 一个基于链接节点的无界线程安全队列
+      - 大部分特性同ArrayBlockingQueue
+      - 当多个线程共享访问一个公共 collection 时，ConcurrentLinkedQueue 是一个恰当的选择
+      - 此队列不允许使用 null 元素
+    - ConcurrentLinkedDeque: 是双向链表实现的无界队列，该队列同时支持FIFO和FILO两种操作方式
+    - DelayQueue: 延时无界阻塞队列, 使用Lock机制实现并发访问。
+      - 队列里只允许放可以“延期”的元素，队列中的head是最先“到期”的元素
+      - 如果队里中没有元素到“到期”，那么就算队列中有元素也不能获取到
+    - PriorityBlockingQueue: 无界优先级阻塞队列，使用Lock机制实现并发访问。
+      - priorityQueue的线程安全版，不允许存放null值，依赖于comparable的排序，不允许存放不可比较的对象类型。
+    - SynchronousQueue: 没有容量的同步队列，通过CAS实现并发访问，支持FIFO和FILO
+    - LinkedTransferQueue: JDK 7新增，单向链表实现的无界阻塞队列，通过CAS实现并发访问，队列元素使用 FIFO(先进先出)方式。
+      - LinkedTransferQueue可以说是ConcurrentLinkedQueue、SynchronousQueue(公平模式)和LinkedBlockingQueue的超集
+      - 仅仅综合了这几个类的功能，同时也提供了更高效的实现
+2. List
+   - CopyOnWriteArrayList: ArrayList 的一个线程安全的变体，其中所有可变操作(add、set 等等)都是通过对底层数组进行一次新的复制来实现的。
+     - 这一般需要很大的开销，但是当遍历操作的数量大大超过可变操作的数量时，这种方法可能比其他替代方法更 有效
+     - 在不能或不想进行同步遍历，但又需要从并发线程中排除冲突时，它也很有用
+3. Set
+   - CopyOnWriteArraySet 对其所有操作使用内部CopyOnWriteArrayList的Set
+     - 即将所有操作转发至CopyOnWriteArrayList来进行操作，能够保证线程安全
+     - 在add时，会调用addIfAbsent，由于每次add时都要进行数组遍历，因此性能会略低于CopyOnWriteArrayList
+   - ConcurrentSkipListSet: 一个基于ConcurrentSkipListMap 的可缩放并发 NavigableSet 实现,
+     - set 的元素可以根据它们的自然顺序进行排序，也可以根据创建 set 时所提供的 Comparator 进行排序，具体取决于使用的构造方法
+4. Map
+   - ConcurrentHashMap 是线程安全的HashMap
+     - ConcurrentHashMap在JDK 7之前是通过Lock和segment(分段锁)实现
+     - JDK 8 之后改为CAS+synchronized来保证并发安全
+   - ConcurrentSkipListMap 线程安全的有序的哈希表(相当于线程安全的TreeMap);
+     - 映射可以根据键的自然顺序进行排序，也可以根据创建映射时所提供的 Comparator 进行排序，具体取决于使用的构造方法
+
+##### Q4. JUC原子类哪些核心的类?
+其基本的特性就是在多线程环境下，当有多个线程同时执行这些类的实例包含的方法时，具有排他性，即当某个线程进入方法，执行其中的指令时，不会被其他线程打断，而别的线程就像自旋锁一样，一直等到该方法执行完成，才由JVM从等待队列中选择一个另一个线程进入，这只是一种逻辑上的理解。实际上是借助硬件的相关指令来实现的，不会阻塞线程(或者说只是在硬件级别上阻塞了)。
+1. 原子更新基本类型
+   - AtomicBoolean: 原子更新布尔类型。
+   - AtomicInteger: 原子更新整型。
+   - AtomicLong: 原子更新长整型。
+2. 原子更新数组
+   - AtomicIntegerArray: 原子更新整型数组里的元素。
+   - AtomicLongArray: 原子更新长整型数组里的元素。
+   - AtomicReferenceArray: 原子更新引用类型数组里的元素。
+3. 原子更新引用类型
+   - AtomicIntegerFieldUpdater: 原子更新整型的字段的更新器。
+   - AtomicLongFieldUpdater: 原子更新长整型字段的更新器。
+   - AtomicStampedFieldUpdater: 原子更新带有版本号的引用类型。
+   - AtomicReferenceFieldUpdater: 上面已经说过此处不在赘述
+4. 原子更新字段类
+   - AtomicReference: 原子更新引用类型。
+   - AtomicStampedReference: 原子更新引用类型, 内部使用Pair来存储元素值及其版本号。
+   - AtomicMarkableReferce: 原子更新带有标记位的引用类型。
+
+##### Q5. JUC线程池哪些核心的类?
+![JUC线程池核心类框架图](../../../picture/java/javaConcurrent/java-thread-x-juc-executors-1.png)
+1. 接口
+   - Executor
+     - 接口提供一种将任务提交与每个任务将如何运行的机制(包括线程使用的细节、调度等)分离开来的方法。通常使用 Executor 而不是显式地创建线程。
+   - ExecutorService
+     - ExecutorService继承自Executor接口，ExecutorService提供了管理终止的方法，以及可为跟踪一个或多个异步任务执行状况而生成 Future 的方法
+     - 可以关闭 ExecutorService，这将导致其停止接受新任务。关闭后，执行程序将最后终止，这时没有任务在执行，也没有任务在等待执行，并且无法提交新任务
+   - ScheduledExecutorService
+     - ScheduledExecutorService继承自ExecutorService接口，可安排在给定的延迟后运行或定期执行的命令。
+2. 抽象类
+   - AbstractExecutorService
+     - AbstractExecutorService继承自ExecutorService接口，其提供 ExecutorService 执行方法的默认实现。
+     - 此类使用 newTaskFor 返回的 RunnableFuture 实现 submit、invokeAny 和 invokeAll 方法，默认情况下，RunnableFuture 是此包中提供的 FutureTask 类。
+   - FutureTask: 为Future提供了基础实现，如获取任务执行结果(get)和取消任务(cancel)等
+     - 如果任务尚未完成，获取任务执行结果时将会阻塞
+     - 一旦执行结束，任务就不能被重启或取消(除非使用runAndReset执行计算)
+     - FutureTask 常用来封装 Callable 和 Runnable，也可以作为一个任务提交到线程池中执行
+     - 除了作为一个独立的类之外，此类也提供了一些功能性函数供我们创建自定义 task 类使用。FutureTask 的线程安全由CAS来保证
+3. 核心类
+   - ThreadPoolExecutor
+     - 实现了AbstractExecutorService接口，也是一个 ExecutorService，
+     - 它使用可能的几个池线程之一执行每个提交的任务，通常使用 Executors 工厂方法配置
+     - 线程池可以解决两个不同问题: 由于减少了每个任务调用的开销，它们通常可以在执行大量异步任务时提供增强的性能，并且还可以提供绑定和管理资源(包括执行任务集时使用的线程)的方法
+     - 每个 ThreadPoolExecutor 还维护着一些基本的统计数据，如完成的任务数
+   - ScheduledThreadExecutor 
+     - 实现ScheduledExecutorService接口，可安排在给定的延迟后运行命令，或者定期执行命令
+     - 需要多个辅助线程时，或者要求 ThreadPoolExecutor 具有额外的灵活性或功能时，此类要优于 Timer
+   - Fork/Join框架 是JDK 7加入的一个线程池类
+     - Fork/Join 技术是分治算法(Divide-and-Conquer)的并行实现，它是一项可以获得良好地并行性能的简单且高效的设计技术
+     - 目的是为了帮助我们更好地利用多处理器带来的好处，使用所有可用的运算能力来提升应用的性能
+4. 工具类
+   - Executors 一个工具类
+     - 用其可以创建ExecutorService、ScheduledExecutorService、ThreadFactory、Callable等对象
+     - 它的使用融入到了ThreadPoolExecutor, ScheduledThreadExecutor和ForkJoinPool中
+
+#### 3.4 JUC原子类
+
+##### Q1. 什么是CAS?
+1. CAS的全称为Compare-And-Swap，直译就是对比交换
+2. 是一条CPU的原子指令，其作用是让CPU先进行比较两个值是否相等，然后原子地更新某个位置的值
+3. 经过调查发现，其实现方式是基于硬件平台的汇编指令，就是说CAS是靠硬件实现的，JVM只是封装了汇编调用，那些AtomicInteger类便是使用了这些封装后的接口。
+4. 简单解释：CAS操作需要输入两个数值，一个旧值(期望操作前的值)和一个新值，在操作期间先比较下在旧值有没有发生变化，如果没有发生变化，才交换成新值，发生了变化则不交换。
+5. CAS操作是原子性的，所以多线程的时候可以避免加锁。JDK中使用了大量的CAS而防止加锁来保持原子更新。
+
+
+##### Q2. CAS会有哪些问题?
+CAS 方式为乐观锁，synchronized 为悲观锁。因此使用 CAS 解决并发问题通常情况下性能更优。
+
+1. ABA问题
+   - 因为CAS需要在操作值的时候，检查值有没有发生变化，比如没有发生变化则更新
+   - 但是如果一个值原来是A，变成了B，又变成了A，那么使用CAS进行检查时则会发现它的值没有发生变化，但是实际上却变化了。
+   - 解决方案: 版本号，在变量前面追加上版本号每次修改把版本号加1
+   - 从Java 1.5开始，JDK的Atomic包里提供了一个类AtomicStampedReference来解决ABA问题
+     - 这个类的compareAndSet方法的作用是首先检查当前引用是否等于预期引用
+     - 并且检查当前标志是否等于预期标志，
+     - 如果全部相等，则以原子方式将该引用和该标志的值设置为给定的更新值。
+2. 循环时间长开销大
+   - 自旋CAS如果长时间不成功，会给CPU带来非常大的执行开销
+   - 如果JVM能支持处理器提供的pause指令，那么效率会有一定的提升，pause指令有两个作用
+     - 第一，它可以延迟流水线执行命令(de-pipeline)，使CPU不会消耗过多的执行资源，延迟的时间取决于具体实现的版本，在一些处理器上延迟时间是零
+     - 第二，它可以避免在退出循环的时候因内存顺序冲突(Memory Order Violation)而引起CPU流水线被清空(CPU Pipeline Flush)，从而提高CPU的执行效率。
+3. 只能保证一个共享变量的原子操作
+   - 当对一个共享变量执行操作时，我们可以使用循环CAS的方式来保证原子操作，但是对多个共享变量操作时，循环CAS就无法保证操作的原子性，这个时候就可以用锁。
+   - 还有一个取巧的办法，就是把多个共享变量合并成一个共享变量来操作
+   - 从Java 1.5开始，JDK提供了AtomicReference类来保证引用对象之间的原子性，就可以把多个变量放在一个对象里来进行CAS操作。
+
+##### Q3. AtomicInteger底层实现?
+1. CAS+volatile
+2. CAS保证数据更新的原子性
+3. volatile保证线程的可见性，多线程并发时，一个线程修改数据，可以保证其它线程立马看到修改后的值CAS 保证数据更新的原子性。
+
+##### Q4. AtomicStampedReference是怎么解决ABA的?
+AtomicStampedReference主要维护包含一个对象引用以及一个可以自动更新的整数"stamp"的pair对象来解决ABA问题。
+
+【注】 还有一个AtomicMarkableReference也可以解决ABA问题，它不是维护一个版本号，而是维护一个boolean类型的标记，标记值有修改，了解一下
+
+
+#### 3.5 JUC锁
+
+##### Q1. 为什么LockSupport也是核心基础类?
+AQS框架借助于两个类：Unsafe(提供CAS操作)和LockSupport(提供park/unpark操作)
+
+##### Q2. 通过wait/notify实现同步和通过LockSupport的park/unpark实现同步？
+先调用unpark，再调用park时，仍能够正确实现同步，不会造成由wait/notify调用顺序不当所引起的阻塞。因此park/unpark相比wait/notify更加的灵活。
+
+##### Q3. Thread.sleep()、Object.wait()、Condition.await()、LockSupport.park()的区别? 重点
+- Thread.sleep()和Object.wait()的区别
+
+| 对比   | Thread.sleep | Object.wait                                                                                           |
+|------|--------------|-------------------------------------------------------------------------------------------------------|
+| 占有的锁 | 不会释放         | 会释放                                                                                                   |
+| 时间   | 必须传入         | 可传可不传(不传表示一直阻塞)                                                                                       |
+| 自动唤醒 | 到了时间会自动唤醒    | wait，不带时间的需要另外的线程使用Object.notify()唤醒；带时间的会自动唤醒，这时又分好两种情况，一是立即获取到了锁，线程自然会继续执行；二是没有立即获取锁，线程进入同步队列等待获取锁； |
+- Object.wait()和Condition.await()的区别
+  - Object.wait()和Condition.await()的原理是基本一致的，不同的是Condition.await()底层是调用LockSupport.park()来实现阻塞当前线程的。
+  - 实际上，它在阻塞当前线程之前还干了两件事
+    - 一是把当前线程添加到条件队列中
+    - 二是“完全”释放锁，也就是让state状态变量变为0
+    - 然后才是调用LockSupport.park()阻塞当前线程
+- Thread.sleep()和LockSupport.park()的区别
+  - 从功能上来说，Thread.sleep()和LockSupport.park()方法类似，都是阻塞当前线程的执行，且都不会释放当前线程占有的锁资源
+  - Thread.sleep()没法从外部唤醒，只能自己醒过来；LockSupport.park()方法可以被另一个线程调用LockSupport.unpark()方法唤醒
+  - Thread.sleep()方法声明上抛出了InterruptedException中断异常，所以调用者需要捕获这个异常或者再抛出；LockSupport.park()方法不需要捕获中断异常
+  - Thread.sleep()本身就是一个native方法；LockSupport.park()底层是调用的Unsafe的native方法；
+- Object.wait()和LockSupport.park()的区别
+  - Object.wait()方法需要在synchronized块中执行；LockSupport.park()可以在任意地方执行；
+  - Object.wait()方法声明抛出了中断异常，调用者需要捕获或者再抛出；LockSupport.park()不需要捕获中断异常；
+  - Object.wait()不带超时的，需要另一个线程执行notify()来唤醒，但不一定继续执行后续内容；LockSupport.park()不带超时的，需要另一个线程执行unpark()来唤醒，一定会继续执行后续内容；
+
+park()/unpark()底层的原理是“二元信号量”，你可以把它相像成只有一个许可证的Semaphore，只不过这个信号量在重复执行unpark()的时候也不会再增加许可证，最多只有一个许可证。
+
+##### Q4. 如果在wait()之前执行了notify()会怎样?
+如果当前的线程不是此对象锁的所有者，却调用该对象的notify()或wait()方法时抛出IllegalMonitorStateException异常；如果当前线程是此对象锁的所有者，wait()将一直阻塞，因为后续将没有其它notify()唤醒它。
+
+##### Q5. 如果在park()之前执行了unpark()会怎样?
+线程不会被阻塞，直接跳过park()，继续执行后续内容
