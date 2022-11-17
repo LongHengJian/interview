@@ -680,3 +680,233 @@ park()/unpark()底层的原理是“二元信号量”，你可以把它相像�
 
 ##### Q5. 如果在park()之前执行了unpark()会怎样?
 线程不会被阻塞，直接跳过park()，继续执行后续内容
+
+##### Q6. 什么是AQS? 为什么它是核心?
+AQS是一个用来构建锁和同步器的框架，使用AQS能简单且高效地构造出应用广泛的大量的同步器ReentrantLock，Semaphore，FutureTask
+
+AQS核心思想是: 
+1. 如果被请求的共享资源空闲，则将当前请求资源的线程设置为有效的工作线程，并且将共享资源设置为锁定状态
+2. 如果被请求的共享资源被占用，那么就需要一套线程阻塞等待以及被唤醒时锁分配的机制，这个机制AQS是用CLH队列锁实现的，即将暂时获取不到锁的线程加入到队列中
+
+AbstractQueuedSynchronizer类底层的数据结构是使用CLH(Craig,Landin,and Hagersten)队列是一个虚拟的双向队列(虚拟的双向队列即不存在队列实例，仅存在结点之间的关联关系)。
+1. AQS是将每条请求共享资源的线程封装成一个CLH锁队列的一个结点(Node)来实现锁的分配。
+2. 其中Sync queue，即同步队列，是双向链表，包括head结点和tail结点，head结点主要用作后续的调度
+3. 而Condition queue不是必须的，其是一个单向链表，只有当使用Condition时，才会存在此单向链表。并且可能会有多个Condition queue
+
+##### Q7. AQS有哪些核心的方法?
+```
+isHeldExclusively()//该线程是否正在独占资源。只有用到condition才需要去实现它。
+tryAcquire(int)//独占方式。尝试获取资源，成功则返回true，失败则返回false。
+tryRelease(int)//独占方式。尝试释放资源，成功则返回true，失败则返回false。
+tryAcquireShared(int)//共享方式。尝试获取资源。负数表示失败；0表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
+tryReleaseShared(int)//共享方式。尝试释放资源，成功则返回true，失败则返回false。
+```
+
+##### Q8. AQS定义什么样的资源获取方式?
+AQS定义了两种资源获取方式：
+1. 独占(只有一个线程能访问执行，又根据是否按队列的顺序分为公平锁和非公平锁，如ReentrantLock)
+   - 公平锁：按照线程在队列中的排队顺序，先到者先拿到锁
+   - 非公平锁：当线程要获取锁时，无视队列顺序直接去抢锁，谁抢到就是谁的
+2. 共享(多个线程可同时访问执行，如Semaphore、CountDownLatch、 CyclicBarrier )。ReentrantReadWriteLock可以看成是组合式，允许多个线程同时对某一资源进行读。#
+
+##### Q9. AQS底层使用了什么样的设计模式?
+模板， 共享锁和独占锁在一个接口类中。
+使用者继承AbstractQueuedSynchronizer并重写指定的方法。(这些重写方法很简单，无非是对于共享资源state的获取和释放) 将AQS组合在自定义同步组件的实现中，并调用其模板方法，而这些模板方法会调用使用者重写的方法。
+
+##### Q10. 什么是可重入，什么是可重入锁? 它用来解决什么问题?
+可重入：（来源于维基百科）若一个程序或子程序可以“在任意时刻被中断然后操作系统调度执行另外一段代码，这段代码又调用了该子程序不会出错”，则称其为可重入（reentrant或re-entrant）的。即当该子程序正在运行时，执行线程可以再次进入并执行它，仍然获得符合设计时预期的结果。与多线程并发执行的线程安全不同，可重入强调对单个线程执行时重新进入同一个子程序仍然是安全的。
+
+可重入锁：又名递归锁，是指在同一个线程在外层方法获取锁的时候，再进入该线程的内层方法会自动获取锁（前提锁对象得是同一个对象或者class），不会因为之前已经获取过还没释放而阻塞。
+
+##### Q11. ReentrantLock的核心是AQS，那么它怎么来实现的，继承吗?
+ReentrantLock总共有三个内部类，并且三个内部类是紧密相关的，下面先看三个类的关系
+![ReentrantLock](../../../picture/java/javaConcurrent/java-thread-x-juc-reentrantlock-1.png)
+
+说明: ReentrantLock类内部总共存在Sync、NonfairSync、FairSync三个类，NonfairSync与FairSync类继承自Sync类，Sync类继承自AbstractQueuedSynchronizer抽象类。下面逐个进行分析
+
+默认实现非公平锁。
+
+##### Q12. ReentrantLock是如何实现公平锁的?
+FairSync
+
+##### Q13. ReentrantLock是如何实现非公平锁的?
+UnFairSync
+
+##### Q14. 为了有了ReentrantLock还需要ReentrantReadWriteLock?
+读锁和写锁分离：ReentrantReadWriteLock表示可重入读写锁，ReentrantReadWriteLock中包含了两种锁，读锁ReadLock和写锁WriteLock，可以通过这两种锁实现线程间的同步。
+
+##### Q15. ReentrantReadWriteLock底层实现原理?
+ReentrantReadWriteLock有五个内部类，五个内部类之间也是相互关联的。内部类的关系如下图所示
+![ReentrantReadWriteLock](../../../picture/java/javaConcurrent/java-thread-x-readwritelock-1.png)
+
+说明: 如上图所示，Sync继承自AQS、NonfairSync继承自Sync类、FairSync继承自Sync类；ReadLock实现了Lock接口、WriteLock也实现了Lock接口。
+
+##### Q16. ReentrantReadWriteLock底层读写状态如何设计的?
+高16位为读锁，低16位为写锁
+
+##### Q17. 读锁和写锁的最大数量是多少?
+2的16次方-1
+
+##### Q18. 本地线程计数器ThreadLocalHoldCounter是用来做什么的?
+本地线程计数器，与对象绑定（线程-》线程重入的次数）
+
+##### Q19. 写锁的获取与释放是怎么实现的?
+tryAcquire/tryRelease
+
+##### Q20. 读锁的获取与释放是怎么实现的?
+tryAcquireShared/tryReleaseShared
+
+##### Q21. 什么是锁的升降级?
+锁降级指的是写锁降级成为读锁。如果当前线程拥有写锁，然后将其释放，最后再获取读锁，这种分段完成的过程不能称之为锁降级。
+锁降级是指把持住(当前拥有的)写锁，再获取到读锁，随后释放(先前拥有的)写锁的过程。
+
+ReentrantReadWriteLock为什么不支持锁升级? 
+ReentrantReadWriteLock不支持锁升级(把持读锁、获取写锁，最后释放读锁的过程)。
+目的也是保证数据可见性，如果读锁已被多个线程获取，其中任意线程成功获取了写锁并更新了数据，则其更新对其他获取到读锁的线程是不可见的。
+
+
+#### 3.6 JUC集合类
+##### Q1. 为什么HashTable慢? 它的并发度是什么? 那么ConcurrentHashMap并发度是什么?
+Hashtable之所以效率低下主要是因为其实现使用了synchronized关键字对put等操作进行加锁，而synchronized关键字加锁是对整个对象进行加锁，也就是说在进行put等修改Hash表的操作时，锁住了整个Hash表，从而使得其表现的效率低下
+
+##### Q2. ConcurrentHashMap在JDK1.7和JDK1.8中实现有什么差别? JDK1.8解決了JDK1.7中什么问题
+1. HashTable : 使用了synchronized关键字对put等操作进行加锁;
+2. ConcurrentHashMap JDK1.7: 使用分段锁机制实现;
+3. ConcurrentHashMap JDK1.8: 则使用数组+链表+红黑树数据结构和CAS原子操作实现;
+
+##### Q3. ConcurrentHashMap JDK1.7实现的原理是什么?
+1. 在JDK1.5~1.7版本，Java使用了分段锁机制实现ConcurrentHashMap.
+2. 简而言之，ConcurrentHashMap在对象中保存了一个Segment数组，即将整个Hash表划分为多个分段
+3. 而每个Segment元素，它通过继承 ReentrantLock 来进行加锁，所以每次需要加锁的操作锁住的是一个 segment
+4. 这样只要保证每个 Segment 是线程安全的，也就实现了全局的线程安全
+5. 这样，在执行put操作时首先根据hash算法定位到元素属于哪个Segment，然后对该Segment加锁即可
+6. 因此，ConcurrentHashMap在多线程并发编程中可是实现多线程put操作
+
+##### Q4. ConcurrentHashMap JDK1.7中Segment数(concurrencyLevel)默认值是多少? 为何一旦初始化就不可再扩容?
+concurrencyLevel: Segment 数（并行级别、并发数）。
+默认是 16，也就是说 ConcurrentHashMap 有 16 个 Segments，
+所以理论上，这个时候，最多可以同时支持 16 个线程并发写，只要它们的操作分别分布在不同的 Segment 上。
+这个值可以在初始化的时候设置为其他值，但是一旦初始化以后，它是不可 以扩容的
+据 hash 值找到 Segment 数组中的位置 j； ensureSegment(j) 对 segment[j] 进行初始化（Segment 内部是由 数组+链表 组成的）
+
+##### Q5. ConcurrentHashMap JDK1.7说说其put的机制?
+1. 计算 key 的 hash 值
+2. 根据 hash 值找到 Segment 数组中的位置 j； ensureSegment(j) 对 segment[j] 进行初始化（Segment 内部是由 数组+链表 组成的）
+3. 插入新值到 槽 s 中
+
+##### Q6. ConcurrentHashMap JDK1.8实现的原理是什么?
+在JDK1.7之前，ConcurrentHashMap是通过分段锁机制来实现的，所以其最大并发度受Segment的个数限制。
+因此，在JDK1.8中，ConcurrentHashMap的实现原理摒弃了这种设计，而是选择了与HashMap类似的数组+链表+红黑树的方式实现，而加锁则采用CAS和synchronized实现。
+简而言之：数组+链表+红黑树，CAS
+
+##### Q7. ConcurrentHashMap JDK1.8是如何扩容的?是如何进行数据迁移的?
+tryPresize, 扩容也是做翻倍扩容的，扩容后数组容量为原来的 2 倍
+
+transfer, 将原来的 tab 数组的元素迁移到新的 nextTab 数组中
+
+##### Q8. CopyOnWriteArrayList的实现原理?
+COW基于拷贝
+```
+// 将toCopyIn转化为Object[]类型数组，然后设置当前数组
+  setArray(Arrays.copyOf(toCopyIn, toCopyIn.length, Object[].class));
+```
+属性中有一个可重入锁，用来保证线程安全访问，还有一个Object类型的数组，用来存放具体的元素。当然，也使用到了反射机制和CAS来保证原子性的修改lock域。
+```
+// 可重入锁
+final transient ReentrantLock lock = new ReentrantLock();
+// 对象数组，用于存放元素
+private transient volatile Object[] array;
+// 反射机制
+private static final sun.misc.Unsafe UNSAFE;
+// lock域的内存偏移量
+private static final long lockOffset;
+```
+
+##### Q9. CopyOnWriteArrayList为什么并发安全且性能比Vector好?
+Vector对单独的add，remove等方法都是在方法上加了synchronized; 并且如果一个线程A调用size时，另一个线程B 执行了remove，然后size的值就不是最新的，然后线程A调用remove就会越界(这时就需要再加一个Synchronized)。
+
+这样就导致有了双重锁，效率大大降低，何必呢。于是vector废弃了，要用就用CopyOnWriteArrayList 吧
+
+##### Q10. CopyOnWriteArrayList有何缺陷，说说其应用场景?
+1. CopyOnWriteArrayList 有几个缺点：
+   - 由于写操作的时候，需要拷贝数组，会消耗内存，如果原数组的内容比较多的情况下，可能导致young gc或者full gc
+   - 不能用于实时读的场景，像拷贝数组、新增元素都需要时间，所以调用一个set操作后，读取到数据可能还是旧的,虽然CopyOnWriteArrayList 能做到最终一致性,但是还是没法满足实时性要求；
+2. CopyOnWriteArrayList 合适读多写少的场景，不过这类慎用
+   - 因为谁也没法保证CopyOnWriteArrayList 到底要放置多少数据，
+   - 万一数据稍微有点多，每次add/set都要重新复制数组，这个代价实在太高昂了。
+   - 在高性能的互联网应用中，这种操作分分钟引起故障
+
+##### Q11. 要想用线程安全的队列有哪些选择?
+Vector，Collections.synchronizedList( List<T> list), ConcurrentLinkedQueue等
+
+##### Q12. ConcurrentLinkedQueue实现的数据结构?
+ConcurrentLinkedQueue的数据结构与LinkedBlockingQueue的数据结构相同，都是使用的链表结构。并且包含有一个头节点和一个尾结点
+
+##### Q13. ConcurrentLinkedQueue底层原理?
+```
+// 反射机制
+private static final sun.misc.Unsafe UNSAFE;
+// head域的偏移量
+private static final long headOffset;
+// tail域的偏移量
+private static final long tailOffset;
+```
+属性中包含了head域和tail域，表示链表的头节点和尾结点，同时，ConcurrentLinkedQueue也使用了反射机制和CAS机制来更新头节点和尾结点，保证原子性。
+
+##### Q14. ConcurrentLinkedQueue的核心方法有哪些?
+offer()，poll()，peek()，isEmpty()等队列常用方法
+
+##### Q15. 说说ConcurrentLinkedQueue的HOPS(延迟更新的策略)的设计?
+通过上面对offer和poll方法的分析，我们发现tail和head是延迟更新的，两者更新触发时机为：
+- **tail更新触发时机**：当tail指向的节点的下一个节点不为null的时候，会执行定位队列真正的队尾节点的操作，找到队尾节点后完成插入之后才会通过casTail进行tail更新；当tail指向的节点的下一个节点为null的时候，只插入节点不更新tail。
+- **head更新触发时机**：当head指向的节点的item域为null的时候，会执行定位队列真正的队头节点的操作，找到队头节点后完成删除之后才会通过updateHead进行head更新；当head指向的节点的item域不为null的时候，只删除节点不更新head。
+
+##### Q16. ConcurrentLinkedQueue适合什么样的使用场景?
+- ConcurrentLinkedQueue通过无锁来做到了更高的并发量，是个高性能的队列，
+- 但是使用场景相对不如阻塞队列常见，毕竟取数据也要不停的去循环，不如阻塞的逻辑好设计，
+- 但是在并发量特别大的情况下，是个不错的选择，性能上好很多，
+- 而且这个队列的设计也是特别费力，尤其的使用的改良算法和对哨兵的处理
+- 整体的思路都是比较严谨的，这个也是使用了无锁造成的，我们自己使用无锁的条件的话，这个队列是个不错的参考
+
+##### Q17. 什么是BlockingDeque? 适合用在什么样的场景?
+BlockingQueue 通常用于一个线程生产对象，而另外一个线程消费这些对象的场景
+
+1. 一个线程将会持续生产新对象并将其插入到队列之中，直到队列达到它所能容纳的临界点,也就是说，它是有限的
+2. 如果该阻塞队列到达了其临界点，负责生产的线程将会在往里边插入新对象时发生阻塞
+3. 它会一直处于阻塞之中，直到负责消费的线程从队列中拿走一个对象
+4. 负责消费的线程将会一直从该阻塞队列中拿出对象
+5. 如果消费线程尝试去从一个空的队列中提取对象的话，这个消费线程将会处于阻塞之中，直到一个生产线程把一个对象丢进队列
+
+##### Q18. BlockingQueue大家族有哪些?
+ArrayBlockingQueue, DelayQueue, LinkedBlockingQueue, SynchronousQueue...
+
+##### Q19. BlockingQueue常用的方法?
+BlockingQueue 具有 4 组不同的方法用于插入、移除以及对队列中的元素进行检查。如果请求的操作不能得到立即执行的话，每个方法的表现也不同
+
+|     | 抛异常       | 特定值      | 阻塞     | 超时                          |
+|-----|-----------|----------|--------|-----------------------------|
+| 插入  | add(o)    | offer(o) | put(o) | offer(o, timeout, timeunit) |
+| 移除  | remove()  | poll()   | take() | poll(timeout, timeunit)     |
+| 检查  | element() | peek()   |        |                             |
+
+四组不同的行为方式解释:
+- 抛异常: 如果试图的操作无法立即执行，抛一个异常。
+- 特定值: 如果试图的操作无法立即执行，返回一个特定的值(常常是 true / false)。
+- 阻塞: 如果试图的操作无法立即执行，该方法调用将会发生阻塞，直到能够执行。
+- 超时: 如果试图的操作无法立即执行，该方法调用将会发生阻塞，直到能够执行，但等待时间不会超过给定值。返回一个特定值以告知该操作是否成功(典型的是 true / false)
+
+
+##### Q20. 什么是BlockingDeque? 适合用在什么样的场景?
+java.util.concurrent 包里的 BlockingDeque 接口表示一个线程安放入和提取实例的双端队列
+
+BlockingDeque 类是一个双端队列，
+在不能够插入元素时，它将阻塞住试图插入元素的线程；
+在不能够抽取元素时，它将阻塞住试图抽取的线程。 
+deque(双端队列) 是 "Double Ended Queue" 的缩写。因此，双端队列是一个你可以从任意一端插入或者抽取元素的队列。
+
+在线程既是一个队列的生产者又是这个队列的消费者的时候可以使用到 BlockingDeque。
+如果生产者线程需要在队列的两端都可以插入数据，消费者线程需要在队列的两端都可以移除数据，这个时候也可以使用 BlockingDeque。
+
+##### Q21. BlockingDeque大家族有哪些?
+LinkedBlockingDeque 是一个双端队列，在它为空的时候，一个试图从中抽取数据的线程将会阻塞，无论该线程是试图从哪一端抽取数据
+
