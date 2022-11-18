@@ -910,3 +910,243 @@ deque(双端队列) 是 "Double Ended Queue" 的缩写。因此，双端队列�
 ##### Q21. BlockingDeque大家族有哪些?
 LinkedBlockingDeque 是一个双端队列，在它为空的时候，一个试图从中抽取数据的线程将会阻塞，无论该线程是试图从哪一端抽取数据
 
+#### 3.7 JUC线程池
+##### Q1. FutureTask用来解决什么问题的? 为什么会出现?
+FutureTask 为 Future 提供了基础实现，如获取任务执行结果(get)和取消任务(cancel)等。如果任务尚未完成，获取任务执行结果时将会阻塞。一旦执行结束，任务就不能被重启或取消(除非使用runAndReset执行计算)
+
+FutureTask 常用来封装 Callable 和 Runnable，也可以作为一个任务提交到线程池中执行。除了作为一个独立的类之外，此类也提供了一些功能性函数供我们创建自定义 task 类使用。FutureTask 的线程安全由CAS来保证
+
+##### Q2. FutureTask类结构关系怎么样的?
+![FutureTask](../../../picture/java/javaConcurrent/java-thread-x-juc-futuretask-1.png)
+
+可以看到,FutureTask实现了RunnableFuture接口，则RunnableFuture接口继承了Runnable接口和Future接口，所以FutureTask既能当做一个Runnable直接被Thread执行，也能作为Future用来得到Callable的计算结果
+
+##### Q3. FutureTask的线程安全是由什么保证的?
+FutureTask 的线程安全由CAS来保证。
+
+##### Q4. 为什么要有线程池?
+线程池能够对线程进行统一分配，调优和监控:
+- 降低资源消耗(线程无限制地创建，然后使用完毕后销毁)
+- 提高响应速度(无须创建线程)
+- 提高线程的可管理性
+
+##### Q7. Java是实现和管理线程池有哪些方式?
+从JDK 5开始，把工作单元与执行机制分离开来，工作单元包括Runnable和Callable，而执行机制由Executor框架提供。
+
+##### Q8. ThreadPoolExecutor的原理?
+其实java线程池的实现原理很简单，说白了就是一个线程集合workerSet和一个阻塞队列workQueue。
+
+当用户向线程池提交一个任务(也就是线程)时，线程池会先将任务放入workQueue中。workerSet中的线程会不断的从workQueue中获取线程然后执行。当workQueue中没有任务的时候，worker就会阻塞，直到队列中有任务了就取出来继续执行
+
+
+当一个任务提交至线程池之后: 
+1. 线程池首先当前运行的线程数量是否少于corePoolSize。如果是，则创建一个新的工作线程来执行任务。如果都在执行任务，则进入2.
+2. 判断BlockingQueue是否已经满了，倘若还没有满，则将线程放入BlockingQueue。否则进入3.
+3. 如果创建一个新的工作线程将使当前运行的线程数量超过maximumPoolSize，则交给RejectedExecutionHandler来处理任务。
+4. 当ThreadPoolExecutor创建新线程时，通过CAS来更新线程池的状态ctl.
+
+##### Q9. ThreadPoolExecutor有哪些核心的配置参数? 请简要说明
+```
+public ThreadPoolExecutor(int corePoolSize,
+                              int maximumPoolSize,
+                              long keepAliveTime,
+                              TimeUnit unit,
+                              BlockingQueue<Runnable> workQueue,
+                              RejectedExecutionHandler handler)
+```
+
+- corePoolSize 线程池中的核心线程数
+  - 当提交一个任务时，线程池创建一个新线程执行任务，直到当前线程数等于corePoolSize,即使有其他空闲线程能够执行新来的任务, 也会继续创建线程
+  - 如果当前线程数为corePoolSize，继续提交的任务被保存到阻塞队列中，等待被执行；
+  - 如果执行了线程池的prestartAllCoreThreads()方法，线程池会提前创建并启动所有核心线程。
+- workQueue: 用来保存等待被执行的任务的阻塞队列.
+  - ArrayBlockingQueue: 基于数组结构的有界阻塞队列，按FIFO排序任务；
+  - LinkedBlockingQueue: 基于链表结构的阻塞队列，按FIFO排序任务，吞吐量通常要高于ArrayBlockingQueue
+  - SynchronousQueue: 一个不存储元素的阻塞队列，每个插入操作必须等到另一个线程调用移除操作，否则插入操作一直处于阻塞状态，吞吐量通常要高于LinkedBlockingQueue；
+  - PriorityBlockingQueue: 具有优先级的无界阻塞队列；
+- maximumPoolSize: 线程池中允许的最大线程数。
+  - 如果当前阻塞队列满了，且继续提交任务，则创建新的线程执行任务，前提是当前线程数小于maximumPoolSize
+  - 当阻塞队列是无界队列, 则maximumPoolSize则不起作用, 因为无法提交至核心线程池的线程会一直持续地放入workQueue.
+- keepAliveTime: 线程空闲时的存活时间
+  - 即当线程没有任务执行时，该线程继续存活的时间
+  - 默认情况下，该参数只在线程数大于corePoolSize时才有用, 超过这个时间的空闲线程将被终止；
+- unit keepAliveTime的单位
+- threadFactory 创建线程的工厂，通过自定义的线程工厂可以给每个新建的线程设置一个具有识别度的线程名。默认为DefaultThreadFactory
+- handler 线程池的饱和策略，当阻塞队列满了，且没有空闲的工作线程，如果继续提交任务，必须采取一种策略处理该任务，线程池提供了4种策略
+  - AbortPolicy: 直接抛出异常，默认策略；
+  - CallerRunsPolicy: 用调用者所在的线程来执行任务；
+  - DiscardOldestPolicy: 丢弃阻塞队列中靠最前的任务，并执行当前任务；
+  - DiscardPolicy: 直接丢弃任务；
+  - 当然也可以根据应用场景实现RejectedExecutionHandler接口，自定义饱和策略，如记录日志或持久化存储不能处理的任务
+
+##### Q10. ThreadPoolExecutor可以创建哪是哪三种线程池呢?
+- newFixedThreadPool
+  - 线程池的线程数量达corePoolSize后，即使线程池没有可执行任务时，也不会释放线程。
+  - FixedThreadPool的工作队列为无界队列LinkedBlockingQueue(队列容量为Integer.MAX_VALUE), 这会导致以下问题:
+    - 线程池里的线程数量不超过corePoolSize,这导致了maximumPoolSize和keepAliveTime将会是个无用参数
+    - 由于使用了无界队列, 所以FixedThreadPool永远不会拒绝, 即饱和策略失效
+- newSingleThreadExecutor
+  - 初始化的线程池中只有一个线程，如果该线程异常结束，会重新创建一个新的线程继续执行任务，唯一的线程可以保证所提交任务的顺序执行.
+  - 由于使用了无界队列, 所以SingleThreadPool永远不会拒绝, 即饱和策略失效
+- newCachedThreadPool
+  - 线程池的线程数可达到Integer.MAX_VALUE，即2147483647
+  - 内部使用SynchronousQueue作为阻塞队列
+  - 和newFixedThreadPool创建的线程池不同，newCachedThreadPool在没有任务执行时，当线程的空闲时间超过keepAliveTime，会自动释放线程资源，
+  - 当提交新任务时，如果没有空闲线程，则创建新线程执行任务，会导致一定的系统开销； 执行过程与前两种稍微不同
+  - 主线程调用SynchronousQueue的offer()方法放入task, 倘若此时线程池中有空闲的线程尝试读取 SynchronousQueue的task, 即调用了SynchronousQueue的poll(), 那么主线程将该task交给空闲线程. 否则执行(2)
+  - 当线程池为空或者没有空闲的线程, 则创建新的线程执行任务.
+  - 执行完任务的线程倘若在60s内仍空闲, 则会被终止. 因此长时间空闲的CachedThreadPool不会持有任何线程资源
+
+##### 11. 当队列满了并且worker的数量达到maxSize的时候，会怎么样?
+当队列满了并且worker的数量达到maxSize的时候,执行具体的拒绝策略
+
+##### 12. 说说ThreadPoolExecutor有哪些RejectedExecutionHandler策略? 默认是什么策略?
+- AbortPolicy, 默认
+  - 该策略是线程池的默认策略。使用该策略时，如果线程池队列满了丢掉这个任务并且抛出RejectedExecutionException异常
+- DiscardPolicy
+  - 这个策略和AbortPolicy的slient版本，如果线程池队列满了，会直接丢掉这个任务并且不会有任何异常
+- DiscardOldestPolicy
+  - 这个策略从字面上也很好理解，丢弃最老的。也就是说如果队列满了，会将最早进入队列的任务删掉腾出空间，再尝试加入队列。 因为队列是队尾进，队头出，所以队头元素是最老的，因此每次都是移除对头元素后再尝试入队
+- CallerRunsPolicy
+  - 使用此策略，如果添加到线程池失败，那么主线程会自己去执行该任务，不会等待线程池中的线程去执行
+
+##### Q13. 简要说下线程池的任务执行机制?
+  - execute –> addWorker –>runworker (getTask)
+1. 线程池的工作线程通过Woker类实现，在ReentrantLock锁的保证下，把Woker实例插入到HashSet后，并启动Woker中的线程。
+2. 从Woker类的构造方法实现可以发现: 线程工厂在创建线程thread时，将Woker实例本身this作为参数传入，当执行start方法启动线程thread时，本质是执行了Worker的runWorker方法。
+3. firstTask执行完成之后，通过getTask方法从阻塞队列中获取等待的任务，如果队列中没有任务，getTask方法会被阻塞并挂起，不会占用cpu资源
+
+##### Q14. 线程池中任务是如何提交的?
+1. submit任务，等待线程池execute
+2. 执行FutureTask类的get方法时，会把主线程封装成WaitNode节点并保存在waiters链表中， 并阻塞等待运行结果；
+3. FutureTask任务执行完成后，通过UNSAFE设置waiters相应的waitNode为null，并通过LockSupport类unpark方法唤醒主线程；
+
+【注】 在实际业务场景中，Future和Callable基本是成对出现的，Callable负责产生结果，Future负责获取结果
+1. Callable接口类似于Runnable，只是Runnable没有返回值。
+2. Callable任务除了返回正常结果之外，如果发生异常，该异常也会被返回，即Future可以拿到异步执行任务各种结果
+3. Future.get方法会导致主线程阻塞，直到Callable任务执行完成；
+
+##### Q15. 线程池中任务是如何关闭的?
+- shutdown
+  将线程池里的线程状态设置成SHUTDOWN状态, 然后中断所有没有正在执行任务的线程.
+- shutdownNow
+  将线程池里的线程状态设置成STOP状态, 然后停止所有正在执行或暂停任务的线程. 只要调用这两个关闭方法中的任意一个, isShutDown() 返回true. 当所有任务都成功关闭了, isTerminated()返回true
+
+##### Q16. 在配置线程池的时候需要考虑哪些配置因素?
+1. 从任务的优先级，任务的执行时间长短，任务的性质(CPU密集/ IO密集)，任务的依赖关系这四个角度来分析。并且近可能地使用有界的工作队列。
+2. 性质不同的任务可用使用不同规模的线程池分开处理:
+   - CPU密集型: 尽可能少的线程，Ncpu+1
+   - IO密集型: 尽可能多的线程, Ncpu*2，比如数据库连接池
+   - 混合型: CPU密集型的任务与IO密集型任务的执行时间差别较小，拆分为两个线程池；否则没有必要拆分。
+
+##### Q17. 为什么很多公司不允许使用Executors去创建线程池? 那么推荐怎么使用呢?
+线程池不允许使用Executors去创建，而是通过ThreadPoolExecutor的方式，这样的处理方式让写的同学更加明确线程池的运行规则，规避资源耗尽的风险
+
+说明：Executors各个方法的弊端:
+- newFixedThreadPool和newSingleThreadExecutor: 主要问题是堆积的请求处理队列可能会耗费非常大的内存，甚至OOM。
+- newCachedThreadPool和newScheduledThreadPool: 主要问题是线程数最大数是Integer.MAX_VALUE，可能会创建数量非常多的线程，甚至OOM。
+- 推荐方式 1 首先引入：commons-lang3包
+- 推荐方式 2 首先引入：com.google.guava包
+- 推荐方式 3 spring配置线程池方式：自定义线程工厂bean需要实现ThreadFactory，可参考该接口的其它默认实现类，使用方式直接注入bean调用execute(Runnable task)方法即可
+
+##### Q18. ScheduledThreadPoolExecutor要解决什么样的问题?
+1. 需要周期性的运行某项任务来获取结果
+2. 多个工作线程运行任务来尽可能的增加产品性能
+3. 需要更高的灵活性来控制和监控这些周期业务
+
+##### Q19. ScheduledThreadPoolExecutor相比ThreadPoolExecutor有哪些特性?
+ScheduledThreadPoolExecutor继承自 ThreadPoolExecutor，为任务提供延迟或周期执行，属于线程池的一种。和 ThreadPoolExecutor 相比，它还具有以下几种特性:
+- 使用专门的任务类型—ScheduledFutureTask 来执行周期任务，也可以接收不需要时间调度的任务(这些任务通过 ExecutorService 来执行)。
+- 使用专门的存储队列—DelayedWorkQueue 来存储任务，DelayedWorkQueue 是无界延迟队列DelayQueue 的一种。相比ThreadPoolExecutor也简化了执行机制(delayedExecute方法，后面单独分析)。
+- 支持可选的run-after-shutdown参数，在池被关闭(shutdown)之后支持可选的逻辑来决定是否继续运行周期或延迟任务。并且当任务(重新)提交操作与 shutdown 操作重叠时，复查逻辑也不相同。
+
+##### Q20. Fork/Join主要用来解决什么样的问题?
+ForkJoinPool 是JDK 7加入的一个线程池类。Fork/Join 技术是分治算法(Divide-and-Conquer)的并行实现，它是一项可以获得良好的并行性能的简单且高效的设计技术。目的是为了帮助我们更好地利用多处理器带来的好处，使用所有可用的运算能力来提升应用的性能
+
+##### Q21. Fork/Join框架主要包含哪三个模块? 模块之间的关系是怎么样的?
+Fork/Join框架主要包含三个模块:
+- 任务对象: ForkJoinTask (包括RecursiveTask、RecursiveAction 和 CountedCompleter)
+- 执行Fork/Join任务的线程: ForkJoinWorkerThread
+- 线程池: ForkJoinPool
+
+这三者的关系是: ForkJoinPool可以通过池中的ForkJoinWorkerThread来处理ForkJoinTask任务。
+
+##### Q22. 整个Fork/Join 框架的执行流程/运行机制是怎么样的?
+1. 首先介绍任务的提交流程 - 外部任务(external/submissions task)提交
+2. 然后介绍任务的提交流程 - 子任务(Worker task)提交
+3. 再分析任务的执行过程(ForkJoinWorkerThread.run()到ForkJoinTask.doExec()这一部分)；
+4. 最后介绍任务的结果获取(ForkJoinTask.join()和ForkJoinTask.invoke())
+
+#### 3.8 JUC工具类
+
+##### Q1. 什么是CountDownLatch?
+CountDownLatch底层也是由AQS，用来同步一个或多个任务的常用并发工具类，强制它们等待由其他任务执行的一组操作完成
+
+##### Q2. CountDownLatch底层实现原理?
+其底层是由AQS提供支持，所以其数据结构可以参考AQS的数据结构，而AQS的数据结构核心就是两个虚拟队列: 同步队列sync queue 和条件队列condition queue，不同的条件会有不同的条件队列
+
+CountDownLatch典型的用法是将一个程序分为n个互相独立的可解决任务，并创建值为n的CountDownLatch。当每一个任务完成时，都会在这个锁存器上调用countDown，等待问题被解决的任务调用这个锁存器的await，将他们自己拦住，直至锁存器计数结束。
+
+##### Q3. CountDownLatch一次可以唤醒几个任务?
+多个
+
+##### Q4. CountDownLatch有哪些主要方法?
+await(), 此函数将会使当前线程在锁存器倒计数至零之前一直等待，除非线程被中断。
+
+countDown(), 此函数将递减锁存器的计数，如果计数到达零，则释放所有等待的线程
+
+##### Q5. 什么是CyclicBarrier?
+同步屏障，在JDK1.5被引入，可以让一组线程达到一个屏障时被阻塞，直到最后一个线程达到屏障时，所以被阻塞的线程才能继续执行。
+
+##### Q6. CountDownLatch和CyclicBarrier对比?
+1. CountDownLatch减计数，CyclicBarrier加计数。
+2. CountDownLatch是一次性的，CyclicBarrier可以重用。
+3. CountDownLatch和CyclicBarrier都有让多个线程等待同步然后再开始下一步动作的意思，但是CountDownLatch的下一步的动作实施者是主线程，具有不可重复性；而CyclicBarrier的下一步动作实施者还是“其他线程”本身，具有往复多次实施动作的特点。#
+
+##### Q7. 什么是Semaphore?
+Semaphore底层是基于AbstractQueuedSynchronizer来实现的。Semaphore称为计数信号量，它允许n个任务同时访问某个资源，可以将信号量看做是在向外分发使用资源的许可证，只有成功获取许可证，才能使用资源#
+
+##### Q8. Semaphore内部原理?
+Semaphore总共有三个内部类，并且三个内部类是紧密相关的，下面先看三个类的关系。
+说明: Semaphore与ReentrantLock的内部类的结构相同，类内部总共存在Sync、NonfairSync、FairSync三个类，NonfairSync与FairSync类继承自Sync类，Sync类继承自AbstractQueuedSynchronizer抽象类。
+
+##### Q9. Phaser主要用来解决什么问题?
+Phaser是JDK 7新增的一个同步辅助类，它可以实现CyclicBarrier和CountDownLatch类似的功能，而且它支持对任务的动态调整，并支持分层结构来达到更高的吞吐量。
+
+##### Q10. Phaser与CyclicBarrier和CountDownLatch的区别是什么?
+Phaser 和 CountDownLatch、CyclicBarrier 都有很相似的地方。
+Phaser 顾名思义，就是可以分阶段的进行线程同步。
+- CountDownLatch 只能在创建实例时，通过构造方法指定同步数量；
+- Phaser 支持线程动态地向它注册。
+
+利用这个动态注册的特性，可以达到分阶段同步控制的目的：注册一批操作，等待它们执行结束；再注册一批操作，等它们结束..
+
+##### Q11. Exchanger主要解决什么问题?
+Exchanger用于进行两个线程之间的数据交换。它提供一个同步点，在这个同步点，两个线程可以交换彼此的数据。
+
+这两个线程通过exchange()方法交换数据，当一个线程先执行exchange()方法后，它会一直等待第二个线程也执行exchange()方法，当这两个线程到达同步点时，这两个线程就可以交换数据了
+
+##### Q12. Exchanger在不同的JDK版本中实现有什么差别?
+在JDK5中Exchanger被设计成一个容量为1的容器，存放一个等待线程，直到有另外线程到来就会发生数据交换，然后清空容器，等到下一个到来的线程。
+
+从JDK6开始，Exchanger用了类似ConcurrentMap的分段思想，提供了多个slot，增加了并发执行时的吞吐量
+
+##### Q13. 什么是ThreadLocal? 用来解决什么问题的?
+我们在Java 并发 - 并发理论基础总结过线程安全(是指广义上的共享资源访问安全性，因为线程隔离是通过副本保证本线程访问资源安全性，它不保证线程之间还存在共享关系的狭义上的安全性)的解决思路：
+
+ThreadLocal是通过线程隔离的方式防止任务在共享资源上产生冲突, 线程本地存储是一种自动化机制，可以为使用相同变量的每个不同线程都创建不同的存储。
+
+##### Q14. ThreadLocal是如何实现线程隔离的?
+ThreadLocalMap
+
+##### Q15. 为什么ThreadLocal会造成内存泄露? 如何解决
+1. ThreadLocal 对象确实会造成内存泄露, 因为对于线程池里面不会销毁的线程, 里面总会存在着<ThreadLocal, LocalVariable>的强引用,
+2. 因为final static 修饰的 ThreadLocal 并不会释放, 而ThreadLocalMap 对于 Key 虽然是弱引用, 但是强引用不会释放, 弱引用当然也会一直有值,
+3. 同时创建的LocalVariable对象也不会释放, 就造成了内存泄露; 如果LocalVariable对象不是一个大对象的话, 其实泄露的并不严重, 泄露的内存 = 核心线程数 * LocalVariable对象的大
+4. 所以, 为了避免出现内存泄露的情况, ThreadLocal提供了一个清除线程中对象的方法, 即 remove, 其实内部实现就是调用 ThreadLocalMap 的remove方法:
+   - 找到Key对应的Entry, 并且清除Entry的Key(ThreadLocal)置空, 随后清除过期的Entry即可避免内存泄露。
+
+##### Q16. 还有哪些使用ThreadLocal的应用场景?
+- 每个线程维护了一个“序列号”
+- Session的管理
+- 在线程内部创建ThreadLocal
