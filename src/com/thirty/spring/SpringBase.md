@@ -216,40 +216,119 @@ ApplicationContext提供了一种解析文本消息的方法，
 2. setter 注入
 3. 接口注入
 
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
-##### Q
+##### Q23. 什么是SpringBoot？
+Spring Boot 是 Spring 开源组织下的子项目，是 Spring 组件一站式解决方案，主要是简化了使用 Spring 的难度，简省了繁重的配置，提供了各种启动器，开发者能快速上手。
+
+1. 用来简化Spring应用的初始搭建以及开发过程，使用特定的方式来进行配置
+2. 创建独立的Spring引用程序main方法运行
+3. 嵌入的tomcat无需部署war文件
+4. 简化maven配置
+5. 自动配置Spring添加对应的功能starter自动化配置
+6. SpringBoot来简化Spring应用开发，约定大于配置，去繁化简
+
+##### Q24. 为什么使用SpringBoot？
+1. 独立运行
+   - Spring Boot 而且内嵌了各种 servlet 容器，Tomcat、Jetty 等，现在不再需要打成war 包部署到容器中，Spring Boot 只要打成一个可执行的 jar 包就能独立运行，所有的依赖包都在一个 jar 包内。
+2. 简化配置
+   - spring-boot-starter-web 启动器自动依赖其他组件，简少了 maven 的配置。
+3. 自动配置
+   - Spring Boot 能根据当前类路径下的类、jar 包来自动配置 bean，如添加一个 spring
+   - boot-starter-web 启动器就能拥有 web 的功能，无需其他配置。
+4. 无代码生成和XML配置
+   - Spring Boot 配置过程中无代码生成，也无需 XML 配置文件就能完成所有配置工作，这一切都是借助于条件注解完成的，这也是 Spring4.x 的核心功能之一。
+5. 应用监控
+   - Spring Boot 提供一系列端点可以监控服务及应用，做健康检测。
+
+##### Q25. Spring、Spring MVC和SpringBoot有什么区别？
+1. Spring
+   - Spring最重要的特征是依赖注入。所有Spring Modules不是依赖注入就是IOC控制反转。
+   - 当我们恰当的使用DI或者是IOC的时候，可以开发松耦合应用。
+2. Spring MVC
+   - Spring MVC提供了一种分离式的方法来开发Web应用。通过运用像DispatcherServelet，ModelAndView 和 ViewResolver 等一些简单的概念，开发 Web 应用将会变的非常简单。
+3. SpringBoot
+   - Spring和Spring MVC的问题在于需要配置大量的参数。
+   - SpringBoot通过一个自动配置和启动的项来解决这个问题。
+
+##### Q26. SpringBoot自动配置的原理?
+在Spring程序main方法中，添加@SpringBootApplication或者@EnableAutoConfiguration会自动去maven中读取每个starter中的spring.factories文件，该文件里配置了所有需要被创建的Spring容器中的bean
+
+##### Q27. Spring Boot的核心注解是哪些？他主由哪几个注解组成的？
+启动类上面的注解是@SpringBootApplication，他也是SpringBoot的核心注解，主要组合包含了以下3个注解：
+
+1. @SpringBootConfiguration：组合了@Configuration注解，实现配置文件的功能；
+2. @EnableAutoConfiguration：打开自动配置的功能，也可以关闭某个自动配置的选项，如关闭数据源自动配置的功能：
+3. @SpringBootApplication(exclude={DataSourceAutoConfiguration.class})；
+4. @ComponentScan：Spring组件扫描。
+
+##### Q28. SpringBoot的核心配置文件有哪几个？他们的区别是什么？
+SpringBoot的核心配置文件是application和bootstrap配置文件。
+
+application配置文件这个容易理解，主要用于Spring Boot项目的自动化配置。
+
+bootstrap配置文件有以下几个应用场景：
+- 使用Spring Cloud Config配置中心时，这时需要在bootstrap配置文件中添加连接到配置中心的配置属性来加载外部配置中心的配置信息；
+- 一些固定的不能被覆盖的属性；
+- 一些加密/解密的场景；
+
+##### Q29. 什么是Spring Boot Starter？有哪些常用的？
+和自动配置一样，Spring Boot Starter的目的也是简化配置，而Spring Boot Starter解决的是依赖管理配置复杂的问题
+
+有了它，当我需要构建一个Web应用程序时，不必再遍历所有的依赖包，一个一个地添加到项目的依赖管理中，而是只需要一个配置spring-boot-starter-web,同理，如果想引入持久化功能，可以配置spring-boot-starter-data-jpa
+
+Spring Boot 也提供了其它的启动器项目包括，包括用于开发特定类型应用程序的典型依赖项。
+1. spring-boot-starter-web-services - SOAP Web Services
+2. spring-boot-starter-web - Web 和 RESTful 应用程序
+3. spring-boot-starter-test - 单元测试和集成测试
+4. spring-boot-starter-jdbc - 传统的 JDBC
+5. spring-boot-starter-hateoas - 为服务添加 HATEOAS 功能
+6. spring-boot-starter-security - 使用 SpringSecurity 进行身份验证和授权
+7. spring-boot-starter-data-jpa - 带有 Hibernate 的 Spring Data JPA
+8. spring-boot-starter-data-rest - 使用 Spring Data REST 公布简单的 REST 服务
+
+##### Q30. spring-boot-starter-parent有什么作用？
+我们知道，新建一个SpringBoot项目，默认都是有parent的，这个parent就是spring-boot-starter-parent，spring-boot-starter-parent主要有如下作用
+1. 定义了Java编译版本
+2. 使用UTF-8格式编码
+3. 继承自spring-boor-dependencies，这里面定义了依赖的版本，也正是因为继承了这个依赖，所以我们在写依赖时才不需要写版本号
+4. 执行打包操作的配置
+5. 自动化的资源过滤
+6. 自动化的插件配置
+
+##### Q31. 如何自定义Spring Boot Starter？
+1. 实现功能
+2. 添加Properties
+3. 添加AutoConfiguration
+4. 添加spring.factory
+   - 在META-INF下创建spring.factory文件
+5. install
+
+##### Q32. 为什么需要spring-boot-maven-plugin？
+spring-boot-maven-plugin提供了一些像jar一样打包或者运行应用程序的命令。
+1. spring-boot:run 运行SpringBoot应用程序；
+2. spring-boot:repackage 重新打包你的jar包或者是war包使其可执行
+3. spring-boot:start和spring-boot:stop管理Spring Boot应用程序的生命周期
+4. spring-boot:build-info生成执行器可以使用的构造信息
+
+##### Q33. SpringBoot 打成jar和普通的jar有什么区别？
+Spring Boot 项目最终打包成的 jar 是可执行 jar ，这种 jar 可以直接通过java -jar xxx.jar命令来运行，这种 jar 不可以作为普通的 jar 被其他项目依赖，即使依赖了也无法使用其中的类。
+
+Spring Boot 的 jar 无法被其他项目依赖，主要还是他和普通 jar 的结构不同.
+1. 普通的 jar 包，解压后直接就是包名，包里就是我们的代码，而 Spring Boot 打包成的可执行 jar 解压后，在 \BOOT-INF\classes目录下才是我们的代码， 因此无法被直接引用
+2. 如果非要引用，可以在 pom.xml 文件中增加配置，将 Spring Boot 项目打包成两个 jar ，一个可执行，一个可引用
+
+##### Q34. 如何使用Spring Boot实现异常处理？
+Spring提供了一种使用ControllerAdvice处理异常的非常有用的方法。通过实现一个ControllerAdvice类，来处理控制类抛出的所有异常。
+
+##### Q35. SpringBoot 实现热部署有哪几种方式？
+主要有两种方式：
+
+1. Spring Loaded
+2. Spring-boot-devtools
+
+##### Q36. Spring Boot中的监视器是什么？
+Spring boot actuator是spring启动框架中的重要功能之一。Spring boot监视器可帮助您访问生产环境中正在运行的应用程序的当前状态。
+
+有几个指标必须在生产环境中进行检查和监控。即使一些外部应用程序可能正在使用这些服务来向相关人员触发警报消息。监视器模块公开了一组可直接作为HTTP URL访问的REST端点来检查状态。
+
+##### Q37. Spring Boot 可以兼容老 Spring 项目吗？
+可以兼容，使用 @ImportResource 注解导入老 Spring 项目配置文件。
