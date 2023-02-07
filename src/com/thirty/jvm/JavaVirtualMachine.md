@@ -97,7 +97,7 @@ Java 虚拟机定义了若干种程序运行期间会使用到的运行时数据
   - 操作数栈（Operand Stack）(或称为表达式栈)
   - 动态链接（Dynamic Linking）：指向运行时常量池的方法引用方法返回地址（Return Address）：方法正常退出或异常退出的地址
   - 一些附加信息
-![栈帧的内部结构](../../../picture/java/javaVirtualMachine/0082zybply1gc6fz21n8kj30u00wpn5v.jpg)
+    ![栈帧的内部结构](../../../picture/java/javaVirtualMachine/0082zybply1gc6fz21n8kj30u00wpn5v.jpg)
 
 ##### Q4. 栈运行原理
 1. JVM 直接对 Java 栈的操作只有两个，对栈帧的压栈和出栈，遵循“先进后出/后进先出”原则
